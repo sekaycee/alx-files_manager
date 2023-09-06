@@ -1,59 +1,47 @@
-/* eslint-disable */
 import { ObjectId } from 'mongodb';
-import dbClient from '../utils/db';
-import redisClient from '../utils/redis';
 
-const sha1 = require('sha1');
+const crypto = require('crypto');
+const dbClient = require('../utils/db');
+const redisClient = require('../utils/redis');
 
-// POST /users should create a new user in DB
-export async function postNew(req, res) {
+function hashPasswd(password) {
+  const hash = crypto.createHash('sha1');
+  const data = hash.update(password, 'utf-8');
+  // Creating the hash in the required format
+  const genHash = data.digest('hex');
+  return genHash;
+}
 
-  try {
-    const userEmail = req.body.email;
-    if (!userEmail) {
-      return res.status(400).send({
-        error: 'Missing email',
-      });
+class UsersController {
+  static async postNew(req, res) {
+    const { email } = req.body;
+    const { password } = req.body;
+    const search = await dbClient.db.collection('users').find({ email }).toArray();
+    if (!email) {
+      return (res.status(400).json({ error: 'Missing email' }));
+    } if (!password) {
+      return (res.status(400).json({ error: 'Missing password' }));
+    } if (search.length > 0) {
+      return (res.status(400).json({ error: 'Already exist' }));
     }
+    const hashpwd = hashPasswd(password);
+    const addUser = await dbClient.db.collection('users').insertOne({ email, password: hashpwd });
+    const newUser = { id: addUser.ops[0]._id, email: addUser.ops[0].email };
+    return (res.status(201).json(newUser));
+  }
 
-    const userPassword = req.body.password;
-    if (!userPassword) {
-      return res.status(400).send({
-        error: 'Missing password',
-      });
+  static async getMe(req, res) {
+    const key = req.header('X-Token');
+    const session = await redisClient.get(`auth_${key}`);
+    if (!key || key.length === 0) {
+      return res.status(401).json({ error: 'Unauthorized' });
     }
-    
-    let existingEmail = await dbClient.db.collection('users').findOne({ email: userEmail });
-    if (existingEmail) {
-      return res.status(400).send({
-        error: 'Already exist',
-      });
+    if (session) {
+      const search = await dbClient.db.collection('users').find({ _id: ObjectId(session) }).toArray();
+      return (res.status(200).json({ id: search[0]._id, email: search[0].email }));
     }
-
-    let userId;
-    const hashedPw = sha1(userPassword);
-    const newUser = {
-      email: userEmail,
-      password: hashedPw,
-    };
-
-    try {
-      await dbClient.db.collection('users').insertOne(newUser, (err) => {
-        userId = newUser._id;
-        return res.status(201).send({
-          email: userEmail,
-          id: userId,
-        });
-      });
-    } catch (err) {
-      return res.status(err.status).send({
-        'error': err,
-      });
-    }
-
-  } catch (error) {
-    return res.status(500).send({
-      error: 'Server error',
-    });
+    return (res.status(401).json({ error: 'Unauthorized' }));
   }
 }
+
+module.exports = UsersController;

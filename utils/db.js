@@ -14,17 +14,15 @@ class DBClient {
 
   isAlive() {
     if (this.client.isConnected()) return true;
-    return false
+    return false;
   }
 
   async nbUsers() {
-    this.db = this.client.db(DB_DATABASE);
     const collection = await this.db.collection('users');
     return collection.countDocuments();
   }
 
   async nbFiles() {
-    this.db = this.client.db(DB_DATABASE);
     const collection = await this.db.collection('files');
     return collection.countDocuments();
   }

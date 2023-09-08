@@ -1,4 +1,5 @@
 import { ObjectId } from 'mongodb';
+import Queue from 'bull';
 
 const crypto = require('crypto');
 const dbClient = require('../utils/db');
@@ -12,22 +13,32 @@ function hashPasswd(password) {
   return genHash;
 }
 
+const userQ = new Queue('userQ');
+
 class UsersController {
   static async postNew(req, res) {
-    const { email } = req.body;
-    const { password } = req.body;
-    const search = await dbClient.db.collection('users').find({ email }).toArray();
-    if (!email) {
-      return (res.status(400).json({ error: 'Missing email' }));
-    } if (!password) {
-      return (res.status(400).json({ error: 'Missing password' }));
-    } if (search.length > 0) {
-      return (res.status(400).json({ error: 'Already exist' }));
-    }
-    const hashpwd = hashPasswd(password);
-    const addUser = await dbClient.db.collection('users').insertOne({ email, password: hashpwd });
-    const newUser = { id: addUser.ops[0]._id, email: addUser.ops[0].email };
-    return (res.status(201).json(newUser));
+    const { email, password } = req.body;
+    if (!email) return res.status(400).send({ error: 'Missing email' });
+    if (!password) return res.status(400).send({ error: 'Missing password' });
+
+    const emailExists = await dbClient.users.findOne({ email });
+    if (emailExists) return res.status(400).send({ error: 'Already exist' });
+
+    const secPass = hashPasswd(password);
+    const insertStat = await dbClient.users.insertOne({
+      email,
+      password: secPass,
+    });
+    const createdUser = {
+      id: insertStat.insertedId,
+      email,
+    };
+
+    await userQ.add({
+      userId: insertStat.insertedId.toString(),
+    });
+
+    return res.status(201).send(createdUser);
   }
 
   static async getMe(req, res) {

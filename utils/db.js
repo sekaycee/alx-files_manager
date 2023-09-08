@@ -7,28 +7,26 @@ const url = `mongodb://${DB_HOST}:${DB_PORT}`;
 
 class DBClient {
   constructor() {
-    MongoClient.connect(url, (error, client) => {
-      if (error) {
-        console.log(error.message);
-        this.db = false;
-        return;
-      }
-      this.db = client.db(DB_DATABASE);
-      this.users = this.db.collection('users');
-      this.files = this.db.collection('files');
-    });
+    this.client = new MongoClient(url, { useUnifiedTopology: true });
+    this.client.connect();
+    this.db = this.client.db(DB_DATABASE);
   }
 
   isAlive() {
-    return !!this.db;
+    if (this.client.isConnected()) return true;
+    return false
   }
 
   async nbUsers() {
-    return this.users.countDocuments();
+    this.db = this.client.db(DB_DATABASE);
+    const collection = await this.db.collection('users');
+    return collection.countDocuments();
   }
 
   async nbFiles() {
-    return this.files.countDocuments();
+    this.db = this.client.db(DB_DATABASE);
+    const collection = await this.db.collection('files');
+    return collection.countDocuments();
   }
 }
 const dbClient = new DBClient();

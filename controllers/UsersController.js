@@ -18,11 +18,11 @@ const userQ = new Queue('userQ');
 class UsersController {
   static async postNew(req, res) {
     const { email, password } = req.body;
-    if (!email) return res.status(400).send({ error: 'Missing email' });
-    if (!password) return res.status(400).send({ error: 'Missing password' });
+    if (!email) return res.status(400).json({ error: 'Missing email' });
+    if (!password) return res.status(400).json({ error: 'Missing password' });
 
     const emailExists = await dbClient.db.collection('users').findOne({ email });
-    if (emailExists) return res.status(400).send({ error: 'Already exist' });
+    if (emailExists) return res.status(400).json({ error: 'Already exist' });
 
     const secPass = hashPasswd(password);
     const insertUser = await dbClient.db.collection('users').insertOne({
@@ -38,7 +38,7 @@ class UsersController {
       'userId': insertUser.insertedId.toString(),
     });
 
-    return res.status(201).send(createdUser);
+    return res.status(201).json(createdUser);
   }
 
   static async getMe(req, res) {

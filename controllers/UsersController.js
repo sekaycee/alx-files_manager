@@ -25,17 +25,17 @@ class UsersController {
     if (emailExists) return res.status(400).send({ error: 'Already exist' });
 
     const secPass = hashPasswd(password);
-    const insertStat = await dbClient.db.collection('users').insertOne({
+    const insertUser = await dbClient.db.collection('users').insertOne({
       email,
-      password: secPass,
+      'password': secPass,
     });
     const createdUser = {
-      id: insertStat.insertedId,
+      'id': insertUser.insertedId,
       email,
     };
 
     await userQ.add({
-      userId: insertStat.insertedId.toString(),
+      'userId': insertUser.insertedId.toString(),
     });
 
     return res.status(201).send(createdUser);
@@ -48,8 +48,8 @@ class UsersController {
       return res.status(401).json({ error: 'Unauthorized' });
     }
     if (session) {
-      const search = await dbClient.db.collection('users').find({ _id: ObjectId(session) }).toArray();
-      return (res.status(200).json({ id: search[0]._id, email: search[0].email }));
+      const search = await dbClient.db.collection('users').find({ '_id': ObjectId(session) }).toArray();
+      return (res.status(200).json({ 'id': search[0]._id, 'email': search[0].email }));
     }
     return (res.status(401).json({ error: 'Unauthorized' }));
   }
